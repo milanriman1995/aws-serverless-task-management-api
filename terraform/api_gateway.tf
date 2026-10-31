@@ -37,12 +37,19 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.task_api.function_name
   principal     = "apigateway.amazonaws.com"
 
-  source_arn = "${aws_apigatewayv2_api.task_api.execution_arn}/*/GET/health"
+  source_arn = "${aws_apigatewayv2_api.task_api.execution_arn}/*/*"
 }
 
 # Display the public health endpoint
 output "health_endpoint" {
   description = "Public URL for the health endpoint"
   value       = "${aws_apigatewayv2_api.task_api.api_endpoint}/health"
+}
+
+resource "aws_apigatewayv2_route" "create_task" {
+  api_id = aws_apigatewayv2_api.task_api.id
+
+  route_key = "POST /tasks"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

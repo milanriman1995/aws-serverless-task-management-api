@@ -64,9 +64,16 @@ resource "aws_lambda_function" "task_api" {
   timeout     = 10
   memory_size = 128
 
+  environment {
+    variables = {
+      TASKS_TABLE_NAME = aws_dynamodb_table.tasks.name
+    }
+  }
+
   depends_on = [
     aws_iam_role_policy.lambda_logging,
-    aws_cloudwatch_log_group.lambda_logs
+    aws_cloudwatch_log_group.lambda_logs,
+    aws_iam_role_policy.lambda_dynamodb
   ]
 }
 
