@@ -148,6 +148,55 @@ class TestTaskAPI(unittest.TestCase):
         self.assertEqual(body["tasks"], expected_tasks)
         mock_table.scan.assert_called_once_with(Limit=50)
 
+    def test_get_task_returns_existing_item(self):
+        task = {
+            "task_id": "abc-123",
+            "title": "Study Terraform",
+            "status": "pending"
+        }
+
+        event = self.make_event("GET", "/tasks/abc-123")
+        event["pathParameters"] = {"id": "abc-123"}
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+        mock_table.get_item.return_value = {"Item": task}
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(json.loads(result["body"]), task)
+
+        mock_table.get_item.assert_called_once_with(
+            Key={"task_id": "abc-123"}
+        )
+
+    def test_get_task_returns_404_when_missing(self):
+        event = self.make_event("GET", "/tasks/missing-id")
+        event["pathParameters"] = {"id": "missing-id"}
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+        mock_table.get_item.return_value = {}
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 404)
+        self.assertEqual(
+            json.loads(result["body"])["error"],
+            "Task not found"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

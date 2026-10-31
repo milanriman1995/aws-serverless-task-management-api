@@ -10,7 +10,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
         Effect = "Allow"
         Action = [
           "dynamodb:PutItem",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:GetItem"
         ]
         Resource = aws_dynamodb_table.tasks.arn
       }

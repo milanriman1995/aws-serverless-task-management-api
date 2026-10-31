@@ -70,5 +70,28 @@ def lambda_handler(event, context):
             "tasks": result.get("Items", [])
         })
 
+    if method == "GET" and path and path.startswith("/tasks/"):
+        task_id = event.get("pathParameters", {}).get("id")
+
+        if not task_id:
+            return response(400, {"error": "Task ID is required"})
+
+        import boto3
+
+        table = boto3.resource("dynamodb").Table(
+            os.environ["TASKS_TABLE_NAME"]
+        )
+
+        result = table.get_item(
+            Key={"task_id": task_id}
+        )
+
+        task = result.get("Item")
+
+        if task is None:
+            return response(404, {"error": "Task not found"})
+
+        return response(200, task)
+
     return response(404, {"error": "Route not found"})
 
