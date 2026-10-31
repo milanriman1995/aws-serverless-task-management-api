@@ -118,6 +118,36 @@ class TestTaskAPI(unittest.TestCase):
 
         self.assertEqual(response["statusCode"], 400)
 
+    def test_list_tasks_returns_items(self):
+        event = self.make_event("GET", "/tasks")
+
+        expected_tasks = [
+            {
+                "task_id": "test-123",
+                "title": "Study Terraform",
+                "status": "pending"
+            }
+        ]
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+        mock_table.scan.return_value = {
+            "Items": expected_tasks
+        }
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        body = json.loads(result["body"])
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(body["tasks"], expected_tasks)
+        mock_table.scan.assert_called_once_with(Limit=50)
+
 
 if __name__ == "__main__":
     unittest.main()

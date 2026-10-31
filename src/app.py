@@ -57,5 +57,18 @@ def lambda_handler(event, context):
 
         return response(201, task)
 
+    if method == "GET" and path == "/tasks":
+        import boto3
+
+        table = boto3.resource("dynamodb").Table(
+            os.environ["TASKS_TABLE_NAME"]
+        )
+
+        result = table.scan(Limit=50)
+
+        return response(200, {
+            "tasks": result.get("Items", [])
+        })
+
     return response(404, {"error": "Route not found"})
 
