@@ -148,5 +148,35 @@ def lambda_handler(event, context):
 
         return response(200, result["Attributes"])
 
+    if method == "DELETE" and path and path.startswith("/tasks/"):
+        task_id = (event.get("pathParameters") or {}).get("id")
+
+        if not task_id:
+            return response(400, {"error": "Task ID is required"})
+
+        import boto3
+        from botocore.exceptions import ClientError
+
+        table = boto3.resource("dynamodb").Table(
+            os.environ["TASKS_TABLE_NAME"]
+        )
+
+        try:
+            table.delete_item(
+                Key={"task_id": task_id},
+                ConditionExpression="attribute_exists(task_id)"
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == (
+                "ConditionalCheckFailedException"
+            ):
+                return response(404, {"error": "Task not found"})
+            raise
+
+        return response(200, {
+            "message": "Task deleted",
+            "task_id": task_id
+        })
+
     return response(404, {"error": "Route not found"})
 

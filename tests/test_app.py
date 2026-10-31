@@ -262,6 +262,71 @@ class TestTaskAPI(unittest.TestCase):
 
         self.assertEqual(result["statusCode"], 400)
 
+    def test_delete_task_returns_200(self):
+        event = self.make_event("DELETE", "/tasks/abc-123")
+        event["pathParameters"] = {"id": "abc-123"}
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(
+            json.loads(result["body"])["message"],
+            "Task deleted"
+        )
+
+        mock_table.delete_item.assert_called_once_with(
+            Key={"task_id": "abc-123"},
+            ConditionExpression="attribute_exists(task_id)"
+        )
+
+    def test_delete_task_returns_404_when_missing(self):
+        from botocore.exceptions import ClientError
+
+        event = self.make_event("DELETE", "/tasks/missing-id")
+        event["pathParameters"] = {"id": "missing-id"}
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+
+        mock_table.delete_item.side_effect = ClientError(
+            {
+                "Error": {
+                    "Code": "ConditionalCheckFailedException",
+                    "Message": "The condition failed"
+                }
+            },
+            "DeleteItem"
+        )
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 404)
+        self.assertEqual(
+            json.loads(result["body"])["error"],
+            "Task not found"
+        )
+
+    def test_delete_task_rejects_missing_id(self):
+        event = self.make_event("DELETE", "/tasks/")
+        event["pathParameters"] = {}
+
+        result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 400)
+
 
 if __name__ == "__main__":
     unittest.main()

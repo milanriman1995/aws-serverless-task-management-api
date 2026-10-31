@@ -12,7 +12,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
           "dynamodb:PutItem",
           "dynamodb:Scan",
           "dynamodb:GetItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
         ]
         Resource = aws_dynamodb_table.tasks.arn
       }
