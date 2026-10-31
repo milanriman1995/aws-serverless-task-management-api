@@ -197,6 +197,71 @@ class TestTaskAPI(unittest.TestCase):
             "Task not found"
         )
 
+    def test_update_task_returns_200(self):
+        event = self.make_event(
+            "PATCH",
+            "/tasks/abc-123",
+            json.dumps({"status": "completed"})
+        )
+        event["pathParameters"] = {"id": "abc-123"}
+
+        updated_task = {
+            "task_id": "abc-123",
+            "title": "Study Terraform",
+            "status": "completed"
+        }
+
+        mock_boto3 = MagicMock()
+        mock_table = mock_boto3.resource.return_value.Table.return_value
+        mock_table.update_item.return_value = {
+            "Attributes": updated_task
+        }
+
+        with patch.dict(sys.modules, {"boto3": mock_boto3}):
+            with patch.dict(
+                os.environ,
+                {"TASKS_TABLE_NAME": "test-tasks"}
+            ):
+                result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(
+            json.loads(result["body"]),
+            updated_task
+        )
+        mock_table.update_item.assert_called_once_with(
+            Key={"task_id": "abc-123"},
+            UpdateExpression="SET #status = :status",
+            ConditionExpression="attribute_exists(task_id)",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":status": "completed"},
+            ReturnValues="ALL_NEW"
+        )
+
+    def test_update_task_rejects_invalid_status(self):
+        event = self.make_event(
+            "PATCH",
+            "/tasks/abc-123",
+            json.dumps({"status": "unknown"})
+        )
+        event["pathParameters"] = {"id": "abc-123"}
+
+        result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 400)
+
+    def test_update_task_rejects_invalid_json(self):
+        event = self.make_event(
+            "PATCH",
+            "/tasks/abc-123",
+            '{"status":'
+        )
+        event["pathParameters"] = {"id": "abc-123"}
+
+        result = lambda_handler(event, None)
+
+        self.assertEqual(result["statusCode"], 400)
+
 
 if __name__ == "__main__":
     unittest.main()

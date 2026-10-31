@@ -1,4 +1,3 @@
-
 # Create the HTTP API
 resource "aws_apigatewayv2_api" "task_api" {
   name          = "project2-task-management-api"
@@ -64,6 +63,13 @@ resource "aws_apigatewayv2_route" "get_task" {
   api_id = aws_apigatewayv2_api.task_api.id
 
   route_key = "GET /tasks/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "update_task" {
+  api_id = aws_apigatewayv2_api.task_api.id
+
+  route_key = "PATCH /tasks/{id}"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
